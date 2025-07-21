@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telescope Image Processing Pipeline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(30, 30, 50, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #64b5f6;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-shadow: 0 0 20px rgba(100, 181, 246, 0.3);
+        }
+
+        .pipeline-section {
+            background: rgba(40, 40, 60, 0.8);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(100, 181, 246, 0.2);
+        }
+
+        .section-title {
+            color: #81c784;
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .control-group {
+            background: rgba(60, 60, 80, 0.6);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(100, 181, 246, 0.1);
+        }
+
+        .control-group h3 {
+            color: #ffb74d;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #b0b0b0;
+            font-weight: 500;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid rgba(100, 181, 246, 0.3);
+            border-radius: 8px;
+            background: rgba(80, 80, 100, 0.8);
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #64b5f6;
+            box-shadow: 0 0 10px rgba(100, 181, 246, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #64b5f6, #42a5f5);
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(100, 181, 246, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #81c784, #66bb6a);
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #ffb74d, #ffa726);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #e57373, #ef5350);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-card {
+            background: rgba(50, 50, 70, 0.9);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(100, 181, 246, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .result-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-card h4 {
+            color: #64b5f6;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .image-display {
+            width: 100%;
+            height: 200px;
+            background: rgba(30, 30, 50, 0.8);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            border: 2px dashed rgba(100, 181, 246, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .image-display img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .image-placeholder {
+            color: #666;
+            font-style: italic;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .stats-table th,
+        .stats-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(100, 181, 246, 0.1);
+        }
+
+        .stats-table th {
+            background: rgba(100, 181, 246, 0.1);
+            color: #64b5f6;
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(100, 181, 246, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #64b5f6, #42a5f5);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .log-output {
+            background: rgba(20, 20, 30, 0.9);
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #81c784;
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(100, 181, 246, 0.2);
+            margin-top: 15px;
+        }
+
+        .rgb-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .channel-control {
+            background: rgba(60, 60, 80, 0.6);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .channel-control.red {
+            border-left: 4px solid #e57373;
+        }
+
+        .channel-control.green {
+            border-left: 4px solid #81c784;
+        }
+
+        .channel-control.blue {
+            border-left: 4px solid #64b5f6;
+        }
+
+        .file-upload {
+            border: 2px dashed rgba(100, 181, 246, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-upload:hover {
+            border-color: #64b5f6;
+            background: rgba(100, 181, 246, 0.1);
+        }
+
+        .file-upload.dragover {
+            border-color: #81c784;
+            background: rgba(129, 199, 132, 0.1);
+        }
+
+        .timing-display {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .timing-item {
+            background: rgba(100, 181, 246, 0.1);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-idle {
+            background: #666;
+        }
+
+        .status-processing {
+            background: #ffb74d;
+            animation: pulse 1s infinite;
+        }
+
+        .status-complete {
+            background: #81c784;
+        }
+
+        .status-error {
+            background: #e57373;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .download-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .download-buttons .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(100, 181, 246, 0.2);
+        }
+
+        .tab {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: #b0b0b0;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #64b5f6;
+            border-bottom-color: #64b5f6;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .rgb-controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔭 Telescope Image Processing Pipeline</h1>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('noise-removal')">Noise Removal</button>
+            <button class="tab" onclick="switchTab('rgb-stacking')">RGB Stacking</button>
+            <button class="tab" onclick="switchTab('batch-processing')">Batch Processing</button>
+        </div>
+
+        <!-- Noise Removal Tab -->
+        <div id="noise-removal" class="tab-content active">
+            <div class="pipeline-section">
+                <h2 class="section-title">
+                    <span class="status-indicator status-idle" id="noise-status"></span>
+                     Noise Removal & Cosmic Ray Detection
+                </h2>
+
+                <div class="controls-grid">
+                    <div class="control-group">
+                        <h3>Input Configuration</h3>
+                        <div class="input-group">
+                            <label for="fits-file">FITS File:</label>
+                            <div class="file-upload" id="fits-upload">
+                                <input type="file" id="fits-file" accept=".fits,.fit" style="display: none;">
+                                <p>Click or drag FITS file here</p>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="frame-index">Frame Index:</label>
+                            <input type="number" id="frame-index" value="0" min="0">
+                        </div>
+                        <div class="input-group">
+                            <label for="mask-file">Bad Pixel Mask (optional):</label>
+                            <div class="file-upload" id="mask-upload">
+                                <input type="file" id="mask-file" accept=".fits,.fit" style="display: none;">
+                                <p>Click or drag mask file here</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>Hot Pixel Correction</h3>
+                        <div class="input-group">
+                            <label for="hot-threshold">Hot Threshold (σ):</label>
+                            <input type="number" id="hot-threshold" value="5.0" step="0.1" min="1.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="bad-col-threshold">Bad Column Threshold (σ):</label>
+                            <input type="number" id="bad-col-threshold" value="3.0" step="0.1" min="1.0">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>AstroScrappy Parameters</h3>
+                        <div class="input-group">
+                            <label for="gain">Gain:</label>
+                            <input type="number" id="gain" value="1.0" step="0.1" min="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="readnoise">Read Noise:</label>
+                            <input type="number" id="readnoise" value="6.5" step="0.1" min="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="sigclip">Sigma Clipping:</label>
+                            <input type="number" id="sigclip" value="8.0" step="0.1" min="1.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="sigfrac">Sigma Fraction:</label>
+                            <input type="number" id="sigfrac" value="0.05" step="0.01" min="0.01" max="1.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="objlim">Object Limit:</label>
+                            <input type="number" id="objlim" value="10.0" step="0.1" min="1.0">
+                        </div>
+                        <div class="input-group">
+                            <label for="psf-fwhm">PSF FWHM:</label>
+                            <input type="number" id="psf-fwhm" value="3.0" step="0.1" min="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="niter">Iterations:</label>
+                            <input type="number" id="niter" value="4" min="1" max="10">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>Wavelet Denoising</h3>
+                        <div class="input-group">
+                            <label for="wavelet">Wavelet:</label>
+                            <select id="wavelet">
+                                <option value="db1">Daubechies 1</option>
+                                <option value="db4">Daubechies 4</option>
+                                <option value="db8">Daubechies 8</option>
+                                <option value="haar">Haar</option>
+                                <option value="bior2.2">Biorthogonal 2.2</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="wavelet-level">Decomposition Level:</label>
+                            <input type="number" id="wavelet-level" value="1" min="1" max="5">
+                        </div>
+                        <div class="input-group">
+                            <label for="thresholding">Thresholding:</label>
+                            <select id="thresholding">
+                                <option value="soft">Soft</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="median-size">Median Filter Size:</label>
+                            <input type="number" id="median-size" value="3" min="1" max="9" step="2">
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-success" onclick="processNoiseRemoval()">
+                     Process Image
+                </button>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="noise-progress"></div>
+                </div>
+
+                <div class="results-grid" id="noise-results">
+                    <!-- Results will be populated here -->
+                </div>
+
+                <div class="log-output" id="noise-log">
+                    Ready to process images...
+                </div>
+            </div>
+        </div>
+
+        <!-- RGB Stacking Tab -->
+        <div id="rgb-stacking" class="tab-content">
+            <div class="pipeline-section">
+                <h2 class="section-title">
+                    <span class="status-indicator status-idle" id="rgb-status"></span>
+                     RGB Color Stacking
+                </h2>
+
+                <div class="controls-grid">
+                    <div class="control-group">
+                        <h3>Filter Assignment</h3>
+                        <div class="input-group">
+                            <label for="red-filter">Red Channel Filter:</label>
+                            <select id="red-filter">
+                                <option value="i">I (Infrared)</option>
+                                <option value="r">R (Red)</option>
+                                <option value="g">G (Green)</option>
+                                <option value="z">Z (Near-IR)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="green-filter">Green Channel Filter:</label>
+                            <select id="green-filter">
+                                <option value="r" selected>R (Red)</option>
+                                <option value="g">G (Green)</option>
+                                <option value="i">I (Infrared)</option>
+                                <option value="z">Z (Near-IR)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="blue-filter">Blue Channel Filter:</label>
+                            <select id="blue-filter">
+                                <option value="g" selected>G (Green)</option>
+                                <option value="r">R (Red)</option>
+                                <option value="i">I (Infrared)</option>
+                                <option value="z">Z (Near-IR)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>Normalization Settings</h3>
+                        <div class="input-group">
+                            <label for="percentile-low">Low Percentile:</label>
+                            <input type="number" id="percentile-low" value="1" min="0" max="50" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="percentile-high">High Percentile:</label>
+                            <input type="number" id="percentile-high" value="99" min="50" max="100" step="0.1">
+                        </div>
+                        <div class="input-group">
+                            <label for="stretch-factor">Stretch Factor:</label>
+                            <input type="number" id="stretch-factor" value="1.0" min="0.1" max="3.0" step="0.1">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>File Inputs</h3>
+                        <div class="input-group">
+                            <label>Upload Filter Images:</label>
+                            <div class="file-upload" id="filter-upload">
+                                <input type="file" id="filter-files" accept=".fits,.fit" multiple style="display: none;">
+                                <p>Click or drag filter FITS files here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rgb-controls">
+                    <div class="channel-control red">
+                        <h4>Red Channel</h4>
+                        <div class="input-group">
+                            <label for="red-stretch">Stretch:</label>
+                            <input type="range" id="red-stretch" min="0.1" max="3.0" step="0.1" value="1.0">
+                            <span id="red-stretch-value">1.0</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="red-brightness">Brightness:</label>
+                            <input type="range" id="red-brightness" min="0.1" max="2.0" step="0.1" value="1.0">
+                            <span id="red-brightness-value">1.0</span>
+                        </div>
+                    </div>
+                    <div class="channel-control green">
+                        <h4>Green Channel</h4>
+                        <div class="input-group">
+                            <label for="green-stretch">Stretch:</label>
+                            <input type="range" id="green-stretch" min="0.1" max="3.0" step="0.1" value="1.0">
+                            <span id="green-stretch-value">1.0</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="green-brightness">Brightness:</label>
+                            <input type="range" id="green-brightness" min="0.1" max="2.0" step="0.1" value="1.0">
+                            <span id="green-brightness-value">1.0</span>
+                        </div>
+                    </div>
+                    <div class="channel-control blue">
+                        <h4>Blue Channel</h4>
+                        <div class="input-group">
+                            <label for="blue-stretch">Stretch:</label>
+                            <input type="range" id="blue-stretch" min="0.1" max="3.0" step="0.1" value="1.0">
+                            <span id="blue-stretch-value">1.0</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="blue-brightness">Brightness:</label>
+                            <input type="range" id="blue-brightness" min="0.1" max="2.0" step="0.1" value="1.0">
+                            <span id="blue-brightness-value">1.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-success" onclick="processRGBStacking()">
+                     Create RGB Image
+                </button>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="rgb-progress"></div>
+                </div>
+
+                <div class="results-grid" id="rgb-results">
+                    <!-- RGB results will be populated here -->
+                </div>
+
+                <div class="log-output" id="rgb-log">
+                    Ready to create RGB composite...
+                </div>
+            </div>
+        </div>
+
+        <!-- Batch Processing Tab -->
+        <div id="batch-processing" class="tab-content">
+            <div class="pipeline-section">
+                <h2 class="section-title">
+                    <span class="status-indicator status-idle" id="batch-status"></span>
+                     Batch Processing
+                </h2>
+
+                <div class="controls-grid">
+                    <div class="control-group">
+                        <h3>Batch Configuration</h3>
+                        <div class="input-group">
+                            <label>Upload Multiple FITS Files:</label>
+                            <div class="file-upload" id="batch-upload">
+                                <input type="file" id="batch-files" accept=".fits,.fit" multiple style="display: none;">
+                                <p>Click or drag multiple FITS files here</p>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="output-format">Output Format:</label>
+                            <select id="output-format">
+                                <option value="fits">FITS</option>
+                                <option value="png">PNG</option>
+                                <option value="both">Both</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>Processing Options</h3>
+                        <div class="input-group">
+                            <label>
+                                <input type="checkbox" id="enable-noise-removal" checked>
+                                Enable Noise Removal
+                            </label>
+                        </div>
+                        <div class="input-group">
+                            <label>
+                                <input type="checkbox" id="enable-wavelet">
+                                Enable Wavelet Denoising
+                            </label>
+                        </div>
+                        <div class="input-group">
+                            <label>
+                                <input type="checkbox" id="enable-cropping" checked>
+                                Enable Frame Cropping
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-success" onclick="processBatch()">
+                     Process Batch
+                </button>
+
+                <div class="progress-bar">
+                    <div class="progress-fill" id="batch-progress"></div>
+                </div>
+
+                <div id="batch-results">
+                    <!-- Batch results will be populated here -->
+                </div>
+
+                <div class="log-output" id="batch-log">
+                    Ready for batch processing...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentResults = {};
+        let filterFiles = {};
+        let batchFiles = [];
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        }
+
+        // File upload handlers
+        function setupFileUpload(uploadId, inputId, callback) {
+            const uploadArea = document.getElementById(uploadId);
+            const fileInput = document.getElementById(inputId);
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    if (callback) callback(files);
+                }
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                if (callback) callback(e.target.files);
+            });
+        }
+
+        // Initialize file uploads
+        setupFileUpload('fits-upload', 'fits-file', (files) => {
+            const uploadArea = document.getElementById('fits-upload');
+            uploadArea.innerHTML = `<p> ${files[0].name}</p>`;
+        });
+
+        setupFileUpload('mask-upload', 'mask-file', (files) => {
+            const uploadArea = document.getElementById('mask-upload');
+            uploadArea.innerHTML = `<p> ${files[0].name}</p>`;
+        });
+
+        setupFileUpload('filter-upload', 'filter-files', (files) => {
+            const uploadArea = document.getElementById('filter-upload');
+            filterFiles = {};
+            Array.from(files).forEach(file => {
+                const filterType = file.name.toLowerCase().includes('_g_') ? 'g' :
+                                  file.name.toLowerCase().includes('_r_') ? 'r' :
+                                  file.name.toLowerCase().includes('_i_') ? 'i' :
+                                  file.name.toLowerCase().includes('_z_') ? 'z' : 'unknown';
+                filterFiles[filterType] = file;
+            });
+            uploadArea.innerHTML = `<p> ${files.length} filter files loaded</p>`;
+        });
+
+        setupFileUpload('batch-upload', 'batch-files', (files) => {
+            batchFiles = Array.from(files);
+            const uploadArea = document.getElementById('batch-upload');
+            uploadArea.innerHTML = `<p> ${files.length} files loaded</p>`;
+        });
+
+        // Range input handlers
+        document.querySelectorAll('input[type="range"]').forEach(input => {
+            const valueSpan = document.getElementById(input.id + '-value');
+            if (valueSpan) {
+                input.addEventListener('input', () => {
+                    valueSpan.textContent = input.value;
+                });
+            }
+        });
+
+        // Logging function
+        function logMessage(logId, message) {
+            const logElement = document.getElementById(logId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            logElement.textContent += logEntry;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // Update status indicator
+        function updateStatus(statusId, status) {
+            const statusElement = document.getElementById(statusId);
+            statusElement.className = `status-indicator status-${status}`;
+        }
+
+        // Update progress bar
+        function updateProgress(progressId, percentage) {
+            const progressElement = document.getElementById(progressId);
+            progressElement.style.width = `${percentage}%`;
+        }
+
+        // Simulate noise removal processing
+        function processNoiseRemoval() {
+            const fitsFile = document.getElementById('fits-file').files[0];
+            if (!fitsFile) {
+                alert('Please select a FITS file first!');
+                return;
+            }
+
+            updateStatus('noise-status', 'processing');
+            logMessage('noise-log', 'Starting noise removal process...');
+            
+            // Get parameters
+            const params = {
+                hotThreshold: parseFloat(document.getElementById('hot-threshold').value),
+                gain: parseFloat(document.getElementById('gain').value),
+                readnoise: parseFloat(document.getElementById('readnoise').value),
+                sigclip: parseFloat(document.getElementById('sigclip').value),
+                sigfrac: parseFloat(document.getElementById('sigfrac').value),
+                objlim: parseFloat(document.getElementById('objlim').value),
+                psfFwhm: parseFloat(document.getElementById('psf-fwhm').value),
+                niter: parseInt(document.getElementById('niter').value),
+                wavelet: document.getElementById('wavelet').value,
+                waveletLevel: parseInt(document.getElementById('wavelet-level').value),
+                medianSize: parseInt(document.getElementById('median-size').value)
+            };
+
+            // Simulate processing steps
+            const steps = [
+                { name: 'Loading FITS file', progress: 10 },
+                { name: 'Correcting hot pixels', progress: 25 },
+                { name: 'Removing bad columns', progress: 40 },
+                { name: 'Applying AstroScrappy', progress: 60 },
+                { name: 'Conservative processing', progress: 80 },
+                { name: 'Wavelet denoising', progress: 90 },
+                { name: 'Finalizing results', progress: 100 }
+            ];
+
+            let currentStep = 0;
+            const processStep = () => {
+                if (currentStep < steps.length) {
+                    const step = steps[currentStep];
+                    logMessage('noise-log', step.name + '...');
+                    updateProgress('noise-progress', step.progress);
+                    currentStep++;
+                    setTimeout(processStep, 800);
+                } else {
+                    completeNoiseRemoval();
+                }
+            };
+
+            processStep();
+        }
+
+        function completeNoiseRemoval() {
+            updateStatus('noise-status', 'complete');
+            logMessage('noise-log', 'Noise removal completed successfully!');
+            
+            // Generate mock results
+            const results = [
+                {
+                    title: 'Original Image',
+                    description: 'Input FITS image',
+                    stats: {
+                        'Dimensions': '2048 x 2048',
+                        'Min Value': '120.5',
+                        'Max Value': '65535.0',
+                        'Mean': '1425.3',
+                        'Std Dev': '892.1'
+                    },
+                    processingTime: '0.15s'
+                },
+                {
+                    title: 'Hot Pixel Corrected',
+                    description: 'After hot pixel correction',
+                    stats: {
+                        'Pixels Corrected': '1247',
+                        'Bad Columns': '3',
+                        'Processing Time': '0.23s'
+                    },
+                    processingTime: '0.23s'
+                },
+                {
+                    title: 'AstroScrappy Cleaned',
+                    description: 'Cosmic ray removal',
+                    stats: {
+                        'Cosmic Rays Found': '542',
+                        'Pixels Cleaned': '1834',
+                        'Iterations': '4'
+                    },
+                    processingTime: '1.45s'
+                },
+                {
+                    title: 'Conservative Clean',
+                    description: 'Conservative cosmic ray removal',
+                    stats: {
+                        'Cosmic Rays Found': '298',
+                        'Pixels Cleaned': '892',
+                        'Iterations': '2'
+                    },
+                    processingTime: '0.87s'
+                },
+                {
+                    title: 'Wavelet Denoised',
+                    description: 'After wavelet denoising',
+                    stats: {
+                        'Wavelet': 'Daubechies 1',
+                        'Levels': '1',
+                        'Threshold': '0.024'
+                    },
+                    processingTime: '0.34s'
+                },
+                {
+                    title: 'Final Result',
+                    description: 'Processed and cropped image',
+                    stats: {
+                        'Final Dimensions': '2008 x 2008',
+                        'Total Processing': '3.27s',
+                        'Quality Score': '98.5%'
+                    },
+                    processingTime: '3.27s'
+                }
+            ];
+
+            displayResults('noise-results', results);
+        }
+
+        // Simulate RGB stacking processing
+        function processRGBStacking() {
+            if (Object.keys(filterFiles).length < 3) {
+                alert('Please upload at least 3 filter images!');
+                return;
+            }
+
+            updateStatus('rgb-status', 'processing');
+            logMessage('rgb-log', 'Starting RGB stacking process...');
+            
+            const steps = [
+                { name: 'Loading filter images', progress: 20 },
+                { name: 'Normalizing channels', progress: 40 },
+                { name: 'Applying stretch factors', progress: 60 },
+                { name: 'Creating RGB composite', progress: 80 },
+                { name: 'Saving output files', progress: 100 }
+            ];
+
+            let currentStep = 0;
+            const processStep = () => {
+                if (currentStep < steps.length) {
+                    const step = steps[currentStep];
+                    logMessage('rgb-log', step.name + '...');
+                    updateProgress('rgb-progress', step.progress);
+                    currentStep++;
+                    setTimeout(processStep, 1000);
+                } else {
+                    completeRGBStacking();
+                }
+            };
+
+            processStep();
+        }
+
+        function completeRGBStacking() {
+            updateStatus('rgb-status', 'complete');
+            logMessage('rgb-log', 'RGB stacking completed successfully!');
+            
+            const results = [
+                {
+                    title: 'Red Channel (I-band)',
+                    description: 'Normalized infrared channel',
+                    stats: {
+                        'Filter': 'I (Infrared)',
+                        'Stretch': '1.0',
+                        'Min/Max': '0.0 / 1.0',
+                        'Percentiles': '1% / 99%'
+                    },
+                    processingTime: '0.45s'
+                },
+                {
+                    title: 'Green Channel (R-band)',
+                    description: 'Normalized red channel',
+                    stats: {
+                        'Filter': 'R (Red)',
+                        'Stretch': '1.0',
+                        'Min/Max': '0.0 / 1.0',
+                        'Percentiles': '1% / 99%'
+                    },
+                    processingTime: '0.42s'
+                },
+                {
+                    title: 'Blue Channel (G-band)',
+                    description: 'Normalized green channel',
+                    stats: {
+                        'Filter': 'G (Green)',
+                        'Stretch': '1.0',
+                        'Min/Max': '0.0 / 1.0',
+                        'Percentiles': '1% / 99%'
+                    },
+                    processingTime: '0.41s'
+                },
+                {
+                    title: 'RGB Composite',
+                    description: 'Final color composite image',
+                    stats: {
+                        'Output Format': 'PNG + FITS',
+                        'Dimensions': '2008 x 2008',
+                        'Color Space': 'sRGB',
+                        'Total Time': '1.28s'
+                    },
+                    processingTime: '1.28s'
+                }
+            ];
+
+            displayResults('rgb-results', results);
+        }
+
+        // Simulate batch processing
+        function processBatch() {
+            if (batchFiles.length === 0) {
+                alert('Please upload files for batch processing!');
+                return;
+            }
+
+            updateStatus('batch-status', 'processing');
+            logMessage('batch-log', `Starting batch processing of ${batchFiles.length} files...`);
+            
+            let processed = 0;
+            const processFile = () => {
+                if (processed < batchFiles.length) {
+                    const file = batchFiles[processed];
+                    logMessage('batch-log', `Processing ${file.name}...`);
+                    updateProgress('batch-progress', ((processed + 1) / batchFiles.length) * 100);
+                    processed++;
+                    setTimeout(processFile, 1500);
+                } else {
+                    completeBatchProcessing();
+                }
+            };
+
+            processFile();
+        }
+
+        function completeBatchProcessing() {
+            updateStatus('batch-status', 'complete');
+            logMessage('batch-log', `Batch processing completed! ${batchFiles.length} files processed.`);
+            
+            const resultsHtml = `
+                <div class="result-card">
+                    <h4>Batch Processing Summary</h4>
+                    <table class="stats-table">
+                        <tr><th>Files Processed</th><td>${batchFiles.length}</td></tr>
+                        <tr><th>Success Rate</th><td>100%</td></tr>
+                        <tr><th>Total Time</th><td>${(batchFiles.length * 1.5).toFixed(1)}s</td></tr>
+                        <tr><th>Average per File</th><td>1.5s</td></tr>
+                    </table>
+                    <div class="download-buttons">
+                        <button class="btn btn-success" onclick="downloadBatchResults()"> Download All</button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('batch-results').innerHTML = resultsHtml;
+        }
+
+        // Display results function
+        function displayResults(containerId, results) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = results.map(result => `
+                <div class="result-card">
+                    <h4>${result.title}</h4>
+                    <div class="image-display">
+                        <div class="image-placeholder"> ${result.description}</div>
+                    </div>
+                    <table class="stats-table">
+                        ${Object.entries(result.stats).map(([key, value]) => 
+                            `<tr><th>${key}</th><td>${value}</td></tr>`
+                        ).join('')}
+                    </table>
+                    <div class="timing-display">
+                        <div class="timing-item"> ${result.processingTime}</div>
+                    </div>
+                    <div class="download-buttons">
+                        <button class="btn btn-warning" onclick="downloadResult('${result.title}', 'fits')">📄 FITS</button>
+                        <button class="btn btn-success" onclick="downloadResult('${result.title}', 'png')">🖼️ PNG</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Download functions
+        function downloadResult(title, format) {
+            logMessage('noise-log', `Downloading ${title} as ${format.toUpperCase()}...`);
+            // In a real implementation, this would trigger actual file download
+            setTimeout(() => {
+                logMessage('noise-log', ` ${title} downloaded successfully!`);
+            }, 500);
+        }
+
+        function downloadBatchResults() {
+            logMessage('batch-log', 'Preparing batch download...');
+            setTimeout(() => {
+                logMessage('batch-log', ' Batch results downloaded as ZIP file!');
+            }, 1000);
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            logMessage('noise-log', 'Telescope Image Processing Pipeline initialized');
+            logMessage('rgb-log', 'RGB stacking module ready');
+            logMessage('batch-log', 'Batch processing module ready');
+        });
+    </script>
+</body>
+</html>
