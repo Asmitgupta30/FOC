@@ -102,7 +102,7 @@ def create_rgb_composite(r, g, b, stretch):
 
 # --- Flask App Setup ---
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "https://foc-pipeline.web.app"}})
 
 def get_params_from_form(form):
     params = {}
