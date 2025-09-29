@@ -172,7 +172,3 @@ def process_rgb_files():
     
     return jsonify({'rgb_image': f"data:image/png;base64,{base64.b64encode(rgb_png_bytes).decode('utf-8')}"})
 
-if __name__ == "__main__":
-    # The port will be set by the hosting service, so we read it from the environment.
-    port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=False)
