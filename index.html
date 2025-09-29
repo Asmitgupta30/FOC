@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated FITS Processing Pipeline</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #e5e7eb; }
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .control-panel { background-color: #1f2937; }
+        .results-panel { background-color: #1f2937; }
+        .tab-button { background-color: transparent; color: #9ca3af; border-bottom: 3px solid transparent; transition: all 0.2s ease; }
+        .tab-button.active { color: #38bdf8; border-color: #38bdf8; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .loader { border: 4px solid rgba(255, 255, 255, 0.2); border-top: 4px solid #38bdf8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        input[type="file"]::file-selector-button { background: #374151; color: #e5e7eb; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
+        input[type="file"]::file-selector-button:hover { background: #4b5563; }
+        input[type=range] { -webkit-appearance: none; background: transparent; width: 100%;}
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #38bdf8; cursor: pointer; margin-top: -6px; box-shadow: 0 0 5px rgba(56, 189, 248, 0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #4b5563; border-radius: 5px; }
+        .log-panel { background-color: #111827; border: 1px solid #374151; height: 150px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.8rem; }
+        details > summary { list-style: none; cursor: pointer; }
+        details > summary::-webkit-details-marker { display: none; }
+        .details-content { background-color: #374151; }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-6 lg:p-8">
+    <div class="max-w-screen-2xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl orbitron font-bold text-gray-200">Automated FITS Processing Pipeline</h1>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left Column: Controls -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                <div class="control-panel p-6 rounded-lg border border-gray-700">
+                    <div class="border-b border-gray-600 mb-4">
+                        <nav class="flex space-x-4" aria-label="Tabs">
+                            <button class="tab-button active orbitron text-sm" data-tab="single"><i class="fas fa-image mr-2"></i>Single</button>
+                            <button class="tab-button orbitron text-sm" data-tab="batch"><i class="fas fa-layer-group mr-2"></i>Batch</button>
+                            <button class="tab-button orbitron text-sm" data-tab="rgb"><i class="fas fa-palette mr-2"></i>RGB</button>
+                        </nav>
+                    </div>
+                    
+                    <!-- Parameter Form (hidden for RGB) -->
+                    <form id="processing-form" class="space-y-4">
+                         <details class="bg-gray-800 rounded"><summary class="p-3 text-md font-semibold"><i class="fas fa-caret-down mr-2"></i>Bad Pixel & Column</summary>
+                            <div class="p-4 details-content grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                <div><label>Hot Pixel σ</label><div class="flex items-center mt-1"><input type="range" name="hot_threshold" min="0" max="10" value="5" step="0.1" class="slider"><span class="w-12 text-center">5.0</span></div></div>
+                                <div><label>Column σ</label><div class="flex items-center mt-1"><input type="range" name="column_sigma" min="0" max="10" value="3" step="0.1" class="slider"><span class="w-12 text-center">3.0</span></div></div>
+                            </div>
+                        </details>
+                        <details class="bg-gray-800 rounded"><summary class="p-3 text-md font-semibold"><i class="fas fa-caret-down mr-2"></i>AstroScrappy - Main</summary>
+                             <div class="p-4 details-content grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                <div><label>Gain</label><div class="flex items-center mt-1"><input type="range" name="gain1" min="0" max="5" value="1" step="0.1" class="slider"><span class="w-12 text-center">1.0</span></div></div>
+                                <div><label>Read Noise</label><div class="flex items-center mt-1"><input type="range" name="readnoise1" min="0" max="20" value="6.5" step="0.1" class="slider"><span class="w-12 text-center">6.5</span></div></div>
+                                <div><label>Sigma Clip</label><div class="flex items-center mt-1"><input type="range" name="sigclip1" min="0" max="15" value="8" step="0.1" class="slider"><span class="w-12 text-center">8.0</span></div></div>
+                                <div><label>Sigma Fraction</label><div class="flex items-center mt-1"><input type="range" name="sigfrac1" min="0" max="1" value="0.05" step="0.01" class="slider"><span class="w-12 text-center">0.05</span></div></div>
+                                <div><label>Object Limit</label><div class="flex items-center mt-1"><input type="range" name="objlim1" min="0" max="20" value="10" step="0.1" class="slider"><span class="w-12 text-center">10.0</span></div></div>
+                                <div><label>PSF FWHM</label><div class="flex items-center mt-1"><input type="range" name="psffwhm1" min="0" max="10" value="3" step="0.1" class="slider"><span class="w-12 text-center">3.0</span></div></div>
+                                <div><label>Iterations</label><div class="flex items-center mt-1"><input type="range" name="niter1" min="1" max="10" value="4" step="1" class="slider"><span class="w-12 text-center">4</span></div></div>
+                            </div>
+                        </details>
+                        <details class="bg-gray-800 rounded"><summary class="p-3 text-md font-semibold"><i class="fas fa-caret-down mr-2"></i>AstroScrappy - Conservative</summary>
+                             <div class="p-4 details-content grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                <div><label>Gain</label><div class="flex items-center mt-1"><input type="range" name="gain2" min="0" max="5" value="1" step="0.1" class="slider"><span class="w-12 text-center">1.0</span></div></div>
+                                <div><label>Read Noise</label><div class="flex items-center mt-1"><input type="range" name="readnoise2" min="0" max="20" value="6.5" step="0.1" class="slider"><span class="w-12 text-center">6.5</span></div></div>
+                                <div><label>Sigma Clip</label><div class="flex items-center mt-1"><input type="range" name="sigclip2" min="0" max="15" value="10" step="0.1" class="slider"><span class="w-12 text-center">10.0</span></div></div>
+                                <div><label>Sigma Fraction</label><div class="flex items-center mt-1"><input type="range" name="sigfrac2" min="0" max="1" value="0.02" step="0.01" class="slider"><span class="w-12 text-center">0.02</span></div></div>
+                                <div><label>Object Limit</label><div class="flex items-center mt-1"><input type="range" name="objlim2" min="0" max="20" value="15" step="0.1" class="slider"><span class="w-12 text-center">15.0</span></div></div>
+                                <div><label>PSF FWHM</label><div class="flex items-center mt-1"><input type="range" name="psffwhm2" min="0" max="10" value="3" step="0.1" class="slider"><span class="w-12 text-center">3.0</span></div></div>
+                                <div><label>Iterations</label><div class="flex items-center mt-1"><input type="range" name="niter2" min="1" max="10" value="2" step="1" class="slider"><span class="w-12 text-center">2</span></div></div>
+                            </div>
+                        </details>
+                         <details class="bg-gray-800 rounded"><summary class="p-3 text-md font-semibold"><i class="fas fa-caret-down mr-2"></i>Denoise & Finalize</summary>
+                             <div class="p-4 details-content grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                                <div><label class="block">Denoise Source</label><select name="denoise_source" class="bg-gray-900 p-2 rounded w-full border border-gray-600 mt-1"><option value="astroscrappy_cleaned">Main Pass</option><option value="conservative_cleaned">Conservative Pass</option></select></div>
+                                <div><label class="block">Wavelet</label><select name="wavelet" class="bg-gray-900 p-2 rounded w-full border border-gray-600 mt-1"><option>db1</option><option>haar</option><option>sym2</option><option>coif1</option></select></div>
+                                <div><label>Wavelet Level</label><div class="flex items-center mt-1"><input type="range" name="wavelet_level" min="1" max="5" value="1" step="1" class="slider"><span class="w-12 text-center">1</span></div></div>
+                                <div><label class="block">Crop Source</label><select name="crop_source" class="bg-gray-900 p-2 rounded w-full border border-gray-600 mt-1"><option value="conservative_cleaned">Conservative Pass</option><option value="astroscrappy_cleaned">Main Pass</option><option value="denoised">Denoised</option></select></div>
+                                <div><label>Crop Fraction</label><div class="flex items-center mt-1"><input type="range" name="crop_frac" min="0" max="0.2" value="0.02" step="0.005" class="slider"><span class="w-12 text-center">2.0%</span></div></div>
+                            </div>
+                        </details>
+                    </form>
+
+                    <!-- Tab Content for Inputs -->
+                    <div id="single-tab-content" class="tab-content active space-y-4">
+                        <div><label class="font-semibold text-sky-300">FITS Image</label><input type="file" id="singleFitsFile" class="mt-1 block w-full text-sm" required></div>
+                        <div><label class="font-semibold text-sky-300">Bad Pixel Mask (Optional)</label><input type="file" id="singleMaskFile" class="mt-1 block w-full text-sm"></div>
+                        <button id="single-process-btn" class="w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-sky-700 transition-colors duration-300 flex items-center justify-center orbitron"><i class="fas fa-cogs mr-2"></i>PROCESS SLICE</button>
+                        <div class="log-panel p-2 text-green-400" id="single-log"></div>
+                    </div>
+                    <div id="batch-tab-content" class="tab-content space-y-4">
+                        <div><label class="font-semibold text-sky-300">FITS Images</label><input type="file" id="batchFitsFiles" class="mt-1 block w-full text-sm" multiple required></div>
+                        <div><label class="font-semibold text-sky-300">Bad Pixel Mask (Optional)</label><input type="file" id="batchMaskFile" class="mt-1 block w-full text-sm"></div>
+                        <button id="batch-process-btn" class="w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-sky-700 transition-colors duration-300 flex items-center justify-center orbitron"><i class="fas fa-cogs mr-2"></i>PROCESS BATCH</button>
+                         <div class="log-panel p-2 text-green-400" id="batch-log"></div>
+                    </div>
+                    <div id="rgb-tab-content" class="tab-content space-y-4">
+                        <form id="rgb-process-form" class="space-y-4">
+                            <div><label class="font-semibold text-red-400">Red Channel</label><input type="file" name="r_file" class="mt-1 block w-full text-sm" required></div>
+                            <div><label class="font-semibold text-green-400">Green Channel</label><input type="file" name="g_file" class="mt-1 block w-full text-sm" required></div>
+                            <div><label class="font-semibold text-blue-400">Blue Channel</label><input type="file" name="b_file" class="mt-1 block w-full text-sm" required></div>
+                            <div><label class="font-semibold text-sky-300">Contrast Stretch</label><div class="flex items-center"><input type="range" name="stretch" min="0.1" max="1.5" value="0.8" step="0.05" class="slider"><span class="w-12 text-center">0.8</span></div></div>
+                            <button type="submit" class="w-full bg-sky-600 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:bg-sky-700 transition-colors duration-300 flex items-center justify-center orbitron"><i class="fas fa-palette mr-2"></i>CREATE COMPOSITE</button>
+                        </form>
+                        <div class="log-panel p-2 text-green-400" id="rgb-log"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Results -->
+            <div class="lg:col-span-7 results-panel p-6 rounded-lg border border-gray-700">
+                <h2 class="text-2xl orbitron font-semibold border-b border-gray-600 pb-3 mb-4">Results</h2>
+                <div id="results-content" class="min-h-[600px] flex items-center justify-center">
+                    <!-- Placeholder -->
+                    <div id="placeholder" class="text-center text-gray-500">
+                        <i class="fas fa-satellite-dish text-5xl mb-4"></i>
+                        <p>Processing results will appear here.</p>
+                    </div>
+                    <!-- Loader -->
+                    <div id="loader" class="hidden flex-col items-center justify-center"><div class="loader"></div><p class="mt-4 text-gray-400">Processing...</p></div>
+                    <!-- Single Slice Output -->
+                    <div id="single-output" class="hidden w-full space-y-4">
+                        <div id="image-results-grid" class="grid grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                        <div class="border-t border-gray-600 pt-4"><h3 class="font-semibold mb-2">Download Stages</h3><div id="download-buttons" class="flex flex-wrap gap-2"></div></div>
+                    </div>
+                    <!-- Batch Output -->
+                    <div id="batch-output" class="hidden text-center p-8">
+                        <i class="fas fa-check-circle text-5xl text-green-400 mb-4"></i><h3 class="text-2xl orbitron">Batch Complete</h3>
+                        <p id="batch-summary" class="text-gray-400 mb-6"></p>
+                        <a id="download-zip-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:bg-green-700 transition-colors duration-300 inline-block orbitron"><i class="fas fa-file-archive mr-2"></i>DOWNLOAD (.ZIP)</a>
+                    </div>
+                    <!-- RGB Output -->
+                    <div id="rgb-output" class="hidden w-full text-center"><img id="rgb-image" class="w-full h-auto rounded-lg mt-2 border-2 border-sky-500"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const API_BASE_URL = 'http://127.0.0.1:5001';
+        const paramForm = document.getElementById('processing-form');
+        const resultsContent = document.getElementById('results-content');
+        const placeholder = document.getElementById('placeholder');
+        const loader = document.getElementById('loader');
+
+        const log = (id, msg) => {
+            const panel = document.getElementById(id);
+            panel.innerHTML += `<div><span class="text-gray-500">${new Date().toLocaleTimeString()}:</span> ${msg}</div>`;
+            panel.scrollTop = panel.scrollHeight;
+        };
+        
+        const showResultPanel = (panelId) => {
+            ['single-output', 'batch-output', 'rgb-output'].forEach(id => document.getElementById(id).style.display = 'none');
+            placeholder.style.display = 'none';
+            loader.style.display = 'none';
+            if(panelId) document.getElementById(panelId).style.display = 'block'; else placeholder.style.display = 'block';
+        };
+
+        const showLoader = (text = 'Processing...') => {
+            ['single-output', 'batch-output', 'rgb-output', 'placeholder'].forEach(id => document.getElementById(id).style.display = 'none');
+            loader.querySelector('p').textContent = text;
+            loader.style.display = 'flex';
+        };
+
+        const tabButtons = document.querySelectorAll('.tab-button');
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabName = button.getAttribute('data-tab');
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(`${tabName}-tab-content`).classList.add('active');
+                paramForm.style.display = (tabName === 'rgb') ? 'none' : 'block';
+                showResultPanel();
+            });
+        });
+
+        document.querySelectorAll('.slider').forEach(slider => {
+            const display = slider.nextElementSibling;
+            const updateDisplay = () => {
+                if(slider.name === 'crop_frac') display.textContent = `${(slider.value * 100).toFixed(1)}%`;
+                else display.textContent = slider.value;
+            };
+            slider.addEventListener('input', updateDisplay);
+            updateDisplay();
+        });
+
+        document.getElementById('single-process-btn').addEventListener('click', async () => {
+            const formData = new FormData(paramForm);
+            const fitsFile = document.getElementById('singleFitsFile').files[0];
+            const maskFile = document.getElementById('singleMaskFile').files[0];
+            if (!fitsFile) { log('single-log', '<span class="text-red-400">Error: FITS Image is required.</span>'); return; }
+            formData.append('fitsFile', fitsFile);
+            if (maskFile) formData.append('maskFile', maskFile);
+
+            log('single-log', `Starting processing for ${fitsFile.name}...`);
+            showLoader('Processing Slice...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/process-single`, { method: 'POST', body: formData });
+                if (!response.ok) throw new Error((await response.json()).error || 'Processing failed');
+                const data = await response.json();
+                
+                const grid = document.getElementById('image-results-grid');
+                grid.innerHTML = '';
+                const order = ['original', 'bad_pixel_corrected', 'astroscrappy_cleaned', 'conservative_cleaned', 'denoised', 'final_cropped'];
+                order.forEach(key => {
+                    if (data.images[key]) {
+                        grid.innerHTML += `<div class="text-center"><h3 class="font-semibold text-sm capitalize">${key.replace(/_/g, ' ')}</h3><img src="${data.images[key]}" class="w-full rounded-md mt-1 border-2 ${key === 'final_cropped' ? 'border-sky-500' : 'border-gray-600'}"></div>`;
+                    }
+                });
+                document.getElementById('download-buttons').innerHTML = Object.keys(data.fits_files).map(key => `<a href="data:application/fits;base64,${data.fits_files[key]}" download="${key}.fits" class="bg-gray-600 hover:bg-gray-700 text-white text-xs font-bold py-1 px-3 rounded-full">${key.replace(/_/g, ' ')}</a>`).join('');
+                showResultPanel('single-output');
+                log('single-log', 'Processing complete.');
+            } catch (error) {
+                log('single-log', `<span class="text-red-400">Error: ${error.message}</span>`);
+                showResultPanel();
+            }
+        });
+
+        document.getElementById('batch-process-btn').addEventListener('click', async () => {
+            const formData = new FormData(paramForm);
+            const fitsFiles = document.getElementById('batchFitsFiles').files;
+            if (fitsFiles.length === 0) { log('batch-log', '<span class="text-red-400">Error: At least one FITS Image is required.</span>'); return; }
+            for(let i=0; i<fitsFiles.length; i++) formData.append('fitsFiles', fitsFiles[i]);
+            if (document.getElementById('batchMaskFile').files[0]) formData.append('maskFile', document.getElementById('batchMaskFile').files[0]);
+
+            log('batch-log', `Starting batch processing for ${fitsFiles.length} files...`);
+            showLoader('Processing Batch...');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/process-batch`, { method: 'POST', body: formData });
+                if (!response.ok) throw new Error('Batch processing failed on server.');
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                document.getElementById('download-zip-btn').href = url;
+                document.getElementById('batch-summary').textContent = `${fitsFiles.length} files processed successfully.`;
+                showResultPanel('batch-output');
+                log('batch-log', 'Batch complete. ZIP file ready for download.');
+            } catch (error) {
+                log('batch-log', `<span class="text-red-400">Error: ${error.message}</span>`);
+                showResultPanel();
+            }
+        });
+
+        document.getElementById('rgb-process-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            log('rgb-log', 'Starting RGB composite creation...');
+            showLoader('Creating Composite...');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/process-rgb`, { method: 'POST', body: formData });
+                if (!response.ok) throw new Error((await response.json()).error);
+                const data = await response.json();
+                document.getElementById('rgb-image').src = data.rgb_image;
+                showResultPanel('rgb-output');
+                log('rgb-log', 'Composite created successfully.');
+            } catch (error) {
+                log('rgb-log', `<span class="text-red-400">Error: ${error.message}</span>`);
+                showResultPanel();
+            }
+        });
+
+        log('single-log', 'Ready.');
+        log('batch-log', 'Ready.');
+        log('rgb-log', 'Ready.');
+    });
+    </script>
+</body>
+</html>
+
+<footer>
+  <p class="text-center text-gray-500 text-sm p-4">
+    Copyright © 2025 Your Name / Your Company Name. All Rights Reserved.
+  </p>
+</footer>

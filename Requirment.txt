@@ -1,0 +1,9 @@
+Flask
+Flask-Cors
+numpy
+astropy
+scipy
+astroscrappy
+Pillow
+pywavelets
+gunicorn
