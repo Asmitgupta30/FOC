@@ -11,5 +11,7 @@ FOC is a custom image processing pipeline with advanced capabilities that AIJ do
 - RESTful Flask API for single, batch, and RGB processing with CORS enabled for frontend apps.
 
 ----------###Link to the website###-------------
+  
+  
   https://foc-pipeline.web.app/
 
